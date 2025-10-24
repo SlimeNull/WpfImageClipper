@@ -13,20 +13,20 @@ namespace LibBezierCurve
             double controlPoint3X,
             double controlPoint3Y)
         {
-            ControlPoint1X = controlPoint1X;
-            ControlPoint1Y = controlPoint1Y;
-            ControlPoint2X = controlPoint2X;
-            ControlPoint2Y = controlPoint2Y;
-            ControlPoint3X = controlPoint3X;
-            ControlPoint3Y = controlPoint3Y;
+            StartPointX = controlPoint1X;
+            StartPointY = controlPoint1Y;
+            ControlPointX = controlPoint2X;
+            ControlPointY = controlPoint2Y;
+            EndPointX = controlPoint3X;
+            EndPointY = controlPoint3Y;
         }
 
-        public double ControlPoint1X { get; }
-        public double ControlPoint1Y { get; }
-        public double ControlPoint2X { get; }
-        public double ControlPoint2Y { get; }
-        public double ControlPoint3X { get; }
-        public double ControlPoint3Y { get; }
+        public double StartPointX { get; }
+        public double StartPointY { get; }
+        public double ControlPointX { get; }
+        public double ControlPointY { get; }
+        public double EndPointX { get; }
+        public double EndPointY { get; }
 
         private IEnumerable<double> ResolveT(double controlPoint1, double controlPoint2, double controlPoint3, double value)
         {
@@ -47,10 +47,10 @@ namespace LibBezierCurve
 
         public void Sample(double t, out double x, out double y)
         {
-            var iterate1Point1X = MathUtils.Lerp(ControlPoint1X, ControlPoint2X, t);
-            var iterate1Point2X = MathUtils.Lerp(ControlPoint2X, ControlPoint3X, t);
-            var iterate1Point1Y = MathUtils.Lerp(ControlPoint1Y, ControlPoint2Y, t);
-            var iterate1Point2Y = MathUtils.Lerp(ControlPoint2Y, ControlPoint3Y, t);
+            var iterate1Point1X = MathUtils.Lerp(StartPointX, ControlPointX, t);
+            var iterate1Point2X = MathUtils.Lerp(ControlPointX, EndPointX, t);
+            var iterate1Point1Y = MathUtils.Lerp(StartPointY, ControlPointY, t);
+            var iterate1Point2Y = MathUtils.Lerp(ControlPointY, EndPointY, t);
 
             x = MathUtils.Lerp(iterate1Point1X, iterate1Point2X, t);
             y = MathUtils.Lerp(iterate1Point1Y, iterate1Point2Y, t);
@@ -64,7 +64,7 @@ namespace LibBezierCurve
             var minDiffFromX = double.PositiveInfinity;
             var minDiffFromY = double.PositiveInfinity;
 
-            foreach (var tMaybe in ResolveT(ControlPoint1X, ControlPoint2X, ControlPoint3X, x))
+            foreach (var tMaybe in ResolveT(StartPointX, ControlPointX, EndPointX, x))
             {
                 Sample(tMaybe, out _, out var yFromT);
                 var diff = Math.Abs(y - yFromT);
@@ -77,7 +77,7 @@ namespace LibBezierCurve
                 }
             }
 
-            foreach (var tMaybe in ResolveT(ControlPoint1Y, ControlPoint2Y, ControlPoint3Y, y))
+            foreach (var tMaybe in ResolveT(StartPointY, ControlPointY, EndPointY, y))
             {
                 Sample(tMaybe, out var xFromT, out _);
                 var diff = Math.Abs(x - xFromT);
@@ -107,9 +107,9 @@ namespace LibBezierCurve
 
         public IEnumerable<(double, double)> EnumerateControlPoints()
         {
-            yield return (ControlPoint1X, ControlPoint1Y);
-            yield return (ControlPoint2X, ControlPoint2Y);
-            yield return (ControlPoint3X, ControlPoint3Y);
+            yield return (StartPointX, StartPointY);
+            yield return (ControlPointX, ControlPointY);
+            yield return (EndPointX, EndPointY);
         }
     }
 

@@ -168,9 +168,9 @@ namespace LibBezierCurve.Internal
         /// <param name="resultX">计算出的垂足的X坐标</param>
         /// <param name="resultY">计算出的垂足的Y坐标</param>
         public static void GetPerpendicularProjection(
-            double linePoint1x, double linePoint1y, 
-            double linePoint2x, double linePoint2y, 
-            double pointX, double pointY, 
+            double linePoint1x, double linePoint1y,
+            double linePoint2x, double linePoint2y,
+            double pointX, double pointY,
             out double resultX, out double resultY)
         {
             // 向量表示：
@@ -207,6 +207,21 @@ namespace LibBezierCurve.Internal
         public static double Lerp(double x, double y, double t)
         {
             return x * (1 - t) + y * t;
+        }
+
+        public static double Length(double vectorX, double vectorY)
+        {
+            double squaredDistance = (vectorX * vectorX) + (vectorY * vectorY);
+
+            double distance = Math.Sqrt(squaredDistance);
+            return distance;
+        }
+
+        public static double Distance(
+            double point1X, double point1Y,
+            double point2X, double point2Y)
+        {
+            return Length(point1X - point2X, point1Y - point2Y);
         }
 
         /// <summary>

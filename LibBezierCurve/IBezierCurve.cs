@@ -5,7 +5,7 @@ namespace LibBezierCurve
         IEnumerable<(double, double)> EnumerateControlPoints();
 
         void Sample(double t, out double x, out double y);
-        bool HitTest(double x, double y, double threshold, out double t);
+        bool HitTest(double x, double y, double maxDistance, out double t);
     }
 
 }

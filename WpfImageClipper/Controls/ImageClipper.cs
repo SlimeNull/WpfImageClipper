@@ -1,4 +1,5 @@
-﻿using System;
+﻿using LibBezierCurve;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -172,6 +173,106 @@ namespace WpfImageClipper.Controls
                     }
                 }
             };
+        }
+
+        private bool DoSegmentHitTest(
+            ImageClipAreaPoint point1,
+            ImageClipAreaPoint point2,
+            Point imageSpacePoint,
+            double maxDistance,
+            out Point target)
+        {
+            target = default;
+
+            if (
+                point1 is ImageClipAreaBezierPoint1 &&
+                point2 is ImageClipAreaBezierPoint2)
+            {
+                var point1Bezier = (ImageClipAreaBezierPoint1)point1;
+                var point2Bezier = (ImageClipAreaBezierPoint2)point2;
+
+                var curve = new CubicBezierCurve(
+                    point1.Position.X,
+                    point1.Position.Y,
+                    point1Bezier.ControlPoint2.X,
+                    point1Bezier.ControlPoint2.Y,
+                    point2Bezier.ControlPoint1.X,
+                    point2Bezier.ControlPoint1.Y,
+                    point2.Position.X,
+                    point2.Position.Y);
+
+                if (!curve.HitTest(imageSpacePoint.X, imageSpacePoint.Y, maxDistance, out var t))
+                {
+                    return false;
+                }
+
+                curve.Sample(t, out var x, out var y);
+                target = new Point(x, y);
+                return true;
+            }
+            else if (
+                point1 is ImageClipAreaCommonPoint &&
+                point2 is ImageClipAreaBezierPoint2)
+            {
+                var point2Bezier = (ImageClipAreaBezierPoint2)point2;
+
+                var curve = new QuadraticBezierCurve(
+                    point1.Position.X,
+                    point1.Position.Y,
+                    point2Bezier.ControlPoint1.X,
+                    point2Bezier.ControlPoint1.Y,
+                    point2.Position.X,
+                    point2.Position.Y);
+
+                if (!curve.HitTest(imageSpacePoint.X, imageSpacePoint.Y, maxDistance, out var t))
+                {
+                    return false;
+                }
+
+                curve.Sample(t, out var x, out var y);
+                target = new Point(x, y);
+                return true;
+            }
+            else if (
+                point1 is ImageClipAreaBezierPoint1 &&
+                point2 is ImageClipAreaCommonPoint)
+            {
+                var point1Bezier = (ImageClipAreaBezierPoint1)point1;
+
+                var curve = new QuadraticBezierCurve(
+                    point1.Position.X,
+                    point1.Position.Y,
+                    point1Bezier.ControlPoint2.X,
+                    point1Bezier.ControlPoint2.Y,
+                    point2.Position.X,
+                    point2.Position.Y);
+
+                if (!curve.HitTest(imageSpacePoint.X, imageSpacePoint.Y, maxDistance, out var t))
+                {
+                    return false;
+                }
+
+                curve.Sample(t, out var x, out var y);
+                target = new Point(x, y);
+                return true;
+            }
+            else
+            {
+                var curve = new LinearBezierCurve(
+                    point1.Position.X,
+                    point1.Position.Y,
+                    point2.Position.X,
+                    point2.Position.Y);
+
+                if (!curve.HitTest(imageSpacePoint.X, imageSpacePoint.Y, maxDistance, out var t))
+                {
+                    return false;
+                }
+
+                curve.Sample(t, out var x, out var y);
+                target = new Point(x, y);
+                return true;
+            }
         }
 
         private void RenderLine(
@@ -374,6 +475,16 @@ namespace WpfImageClipper.Controls
             return pathGeometry;
         }
 
+        private void InsertPoint(int afterIndex, Point position)
+        {
+            // TODO: 插入的应该是完整的贝塞尔曲线点, 计算对现有曲线不会造成影响的两个控制点
+
+            AreaPoints.Insert(afterIndex + 1, new ImageClipAreaCommonPoint()
+            {
+                Position = position
+            });
+        }
+
         protected override void OnRender(DrawingContext drawingContext)
         {
             if (Source is null)
@@ -561,16 +672,34 @@ namespace WpfImageClipper.Controls
                 // 创建点
                 if (!e.Handled && !IsAreaClosed)
                 {
-                    _isAdjustingPoint = true;
-                    _currentPointIndex = AreaPoints.Count;
-                    _adjustingPointIndex = _currentPointIndex;
-                    AreaPoints.Add(new ImageClipAreaCommonPoint()
+                    var imageSpaceMousePosition = PointFromControlSpaceToImageSpace(controlSpaceMousePosition);
+                    for (int i = 0; i < AreaPoints.Count - 1; i++)
                     {
-                        Position = PointFromControlSpaceToImageSpace(controlSpaceMousePosition)
-                    });
+                        if (DoSegmentHitTest(AreaPoints[i], AreaPoints[i + 1], imageSpaceMousePosition, 2.5 / _scale, out var target))
+                        {
+                            _isAdjustingPoint = true;
+                            _currentPointIndex = i + 1;
+                            _adjustingPointIndex = _currentPointIndex;
+                            InsertPoint(i, target);
 
-                    InvalidateVisual();
-                    e.Handled = true;
+                            e.Handled = true;
+                            break;
+                        }
+                    }
+
+                    if (!e.Handled)
+                    {
+                        _isAdjustingPoint = true;
+                        _currentPointIndex = AreaPoints.Count;
+                        _adjustingPointIndex = _currentPointIndex;
+                        AreaPoints.Add(new ImageClipAreaCommonPoint()
+                        {
+                            Position = imageSpaceMousePosition
+                        });
+
+                        InvalidateVisual();
+                        e.Handled = true;
+                    }
                 }
 
                 // 取消选中
