@@ -1,4 +1,3 @@
-
 using LibBezierCurve.Internal;
 
 namespace LibBezierCurve
@@ -30,7 +29,7 @@ namespace LibBezierCurve
 
         private IEnumerable<double> ResolveT(double controlPoint1, double controlPoint2, double controlPoint3, double value)
         {
-            // ��Ԫһ�η��̱�׼��ʽ
+            // 二元一次方程标准形式
 
             var a = controlPoint1 - 2 * controlPoint2 + controlPoint3;
             var b = -2 * controlPoint1 + 2 * controlPoint2;
@@ -110,6 +109,40 @@ namespace LibBezierCurve
             yield return (StartPointX, StartPointY);
             yield return (ControlPointX, ControlPointY);
             yield return (EndPointX, EndPointY);
+        }
+
+        /// <summary>
+        /// 在参数 t 处细分二次贝塞尔曲线，返回两段新的二次贝塞尔曲线
+        /// 使用 De Casteljau 算法保证细分后的曲线形状与原曲线完全一致
+        /// </summary>
+        /// <param name="t">细分参数，范围 [0, 1]</param>
+        /// <param name="leftCurve">左侧曲线 [0, t]</param>
+        /// <param name="rightCurve">右侧曲线 [t, 1]</param>
+        public void Subdivide(double t, out QuadraticBezierCurve leftCurve, out QuadraticBezierCurve rightCurve)
+        {
+            // De Casteljau 算法
+            // 第一层插值
+            var p01X = MathUtils.Lerp(StartPointX, ControlPointX, t);
+            var p01Y = MathUtils.Lerp(StartPointY, ControlPointY, t);
+
+            var p12X = MathUtils.Lerp(ControlPointX, EndPointX, t);
+            var p12Y = MathUtils.Lerp(ControlPointY, EndPointY, t);
+
+            // 第二层插值 - 曲线上的点
+            var p012X = MathUtils.Lerp(p01X, p12X, t);
+            var p012Y = MathUtils.Lerp(p01Y, p12Y, t);
+
+            // 左侧曲线: P0, P01, P012
+            leftCurve = new QuadraticBezierCurve(
+                StartPointX, StartPointY,    // 起点
+                p01X, p01Y,         // 控制点
+                p012X, p012Y);       // 终点
+
+            // 右侧曲线: P012, P12, P2
+            rightCurve = new QuadraticBezierCurve(
+                p012X, p012Y,      // 起点
+                p12X, p12Y,       // 控制点
+                EndPointX, EndPointY);       // 终点
         }
     }
 

@@ -35,7 +35,7 @@ namespace LibBezierCurve
 
         private IEnumerable<double> ResolveT(double controlPoint1, double controlPoint2, double controlPoint3, double controlPoint4, double value)
         {
-            // ��Ԫһ�η��̱�׼��ʽ
+            // 三元一次方程标准形式
 
             var a = -controlPoint1 + 3 * controlPoint2 - 3 * controlPoint3 + controlPoint4;
             var b = 3 * (controlPoint1 - 2 * controlPoint2 + controlPoint3);
@@ -71,53 +71,106 @@ namespace LibBezierCurve
 
         public bool HitTest(double x, double y, double threshold, out double t)
         {
-            // TODO: ����Ӧ���� x ƽ�е��� y ƽ�е㹹������, Ȼ������, ���жϴ���ľ���
+            // 使用牛顿迭代法找到曲线上距离 (x, y) 最近的点
+            // 目标是最小化距离的平方: D(t) = (Bx(t) - x)^2 + (By(t) - y)^2
+            // 其导数为零时取得最小值: D'(t) = 2(Bx(t) - x)B'x(t) + 2(By(t) - y)B'y(t) = 0
 
-            var rootFromX = double.NaN;
-            var rootFromY = double.NaN;
+            // 尝试多个初始点以避免局部最小值
+            double bestT = 0;
+            double minDistance = double.PositiveInfinity;
 
-            var minDiffFromX = double.PositiveInfinity;
-            var minDiffFromY = double.PositiveInfinity;
-
-            foreach (var tMaybe in ResolveT(StartPointX, ControlPoint1X, ControlPoint2X, EndPointX, x))
+            // 采样多个初始点
+            for (int i = 0; i <= 10; i++)
             {
-                Sample(tMaybe, out _, out var yFromT);
-                var diff = Math.Abs(y - yFromT);
+                double tCandidate = i / 10.0;
 
-                if (diff <= threshold &&
-                    diff < minDiffFromX)
+                // 牛顿迭代法
+                for (int iter = 0; iter < 10; iter++)
                 {
-                    minDiffFromX = diff;
-                    rootFromX = tMaybe;
+                    Sample(tCandidate, out var px, out var py);
+
+                    // 计算一阶导数 B'(t)
+                    var t2 = tCandidate * tCandidate;
+                    var mt = 1 - tCandidate;
+                    var mt2 = mt * mt;
+
+                    var bx = 3 * mt2 * (ControlPoint1X - StartPointX) +
+                             6 * mt * tCandidate * (ControlPoint2X - ControlPoint1X) +
+                             3 * t2 * (EndPointX - ControlPoint2X);
+
+                    var by = 3 * mt2 * (ControlPoint1Y - StartPointY) +
+                             6 * mt * tCandidate * (ControlPoint2Y - ControlPoint1Y) +
+                             3 * t2 * (EndPointY - ControlPoint2Y);
+
+                    // D'(t) = 2(Bx(t) - x)B'x(t) + 2(By(t) - y)B'y(t)
+                    var derivative = 2 * ((px - x) * bx + (py - y) * by);
+
+                    if (Math.Abs(derivative) < 1e-6)
+                    {
+                        break;
+                    }
+
+                    // 计算二阶导数 B''(t)
+                    var bxx = 6 * mt * (ControlPoint2X - 2 * ControlPoint1X + StartPointX) +
+                              6 * tCandidate * (EndPointX - 2 * ControlPoint2X + ControlPoint1X);
+                    var byy = 6 * mt * (ControlPoint2Y - 2 * ControlPoint1Y + StartPointY) +
+                              6 * tCandidate * (EndPointY - 2 * ControlPoint2Y + ControlPoint1Y);
+
+                    // D''(t) = 2[B'x(t)^2 + B'y(t)^2 + (Bx(t) - x)B''x(t) + (By(t) - y)B''y(t)]
+                    var secondDerivative = 2 * (bx * bx + by * by + (px - x) * bxx + (py - y) * byy);
+
+                    if (Math.Abs(secondDerivative) < 1e-6)
+                    {
+                        break;
+                    }
+
+                    // 牛顿迭代步骤
+                    var tNext = tCandidate - derivative / secondDerivative;
+                    tNext = Math.Max(0, Math.Min(1, tNext)); // 限制在 [0, 1] 范围内
+
+                    if (Math.Abs(tNext - tCandidate) < 1e-6)
+                    {
+                        tCandidate = tNext;
+                        break;
+                    }
+
+                    tCandidate = tNext;
+                }
+
+                // 检查这个候选点的距离
+                Sample(tCandidate, out var candidatePx, out var candidatePy);
+                var dx = candidatePx - x;
+                var dy = candidatePy - y;
+                var dist = dx * dx + dy * dy;
+
+                if (dist < minDistance)
+                {
+                    minDistance = dist;
+                    bestT = tCandidate;
                 }
             }
 
-            foreach (var tMaybe in ResolveT(StartPointY, ControlPoint1Y, ControlPoint2Y, EndPointY, y))
-            {
-                Sample(tMaybe, out var xFromT, out _);
-                var diff = Math.Abs(x - xFromT);
+            // 也检查端点
+            Sample(0, out var startX, out var startY);
+            var distStart = (startX - x) * (startX - x) + (startY - y) * (startY - y);
 
-                if (diff <= threshold &&
-                    diff < minDiffFromY)
-                {
-                    minDiffFromY = diff;
-                    rootFromY = tMaybe;
-                }
+            Sample(1, out var endX, out var endY);
+            var distEnd = (endX - x) * (endX - x) + (endY - y) * (endY - y);
+
+            if (distStart < minDistance)
+            {
+                minDistance = distStart;
+                bestT = 0;
             }
 
-            if (double.IsNaN(rootFromX))
+            if (distEnd < minDistance)
             {
-                t = rootFromY;
-                return !double.IsNaN(rootFromY);
-            }
-            else if (double.IsNaN(rootFromY))
-            {
-                t = rootFromX;
-                return true;
+                minDistance = distEnd;
+                bestT = 1;
             }
 
-            t = (rootFromX + rootFromY) / 2;
-            return true;
+            t = bestT;
+            return Math.Sqrt(minDistance) <= threshold;
         }
 
         public IEnumerable<(double, double)> EnumerateControlPoints()
@@ -127,6 +180,52 @@ namespace LibBezierCurve
             yield return (ControlPoint2X, ControlPoint2Y);
             yield return (EndPointX, EndPointY);
         }
+
+        /// <summary>
+        /// 在参数 t 处细分三次贝塞尔曲线，返回两段新的三次贝塞尔曲线
+        /// 使用 De Casteljau 算法保证细分后的曲线形状与原曲线完全一致
+        /// </summary>
+        /// <param name="t">细分参数，范围 [0, 1]</param>
+        /// <param name="leftCurve">左侧曲线 [0, t]</param>
+        /// <param name="rightCurve">右侧曲线 [t, 1]</param>
+        public void Subdivide(double t, out CubicBezierCurve leftCurve, out CubicBezierCurve rightCurve)
+        {
+            // De Casteljau 算法
+            // 第一层插值
+            var p01X = MathUtils.Lerp(StartPointX, ControlPoint1X, t);
+            var p01Y = MathUtils.Lerp(StartPointY, ControlPoint1Y, t);
+            
+            var p12X = MathUtils.Lerp(ControlPoint1X, ControlPoint2X, t);
+            var p12Y = MathUtils.Lerp(ControlPoint1Y, ControlPoint2Y, t);
+        
+            var p23X = MathUtils.Lerp(ControlPoint2X, EndPointX, t);
+            var p23Y = MathUtils.Lerp(ControlPoint2Y, EndPointY, t);
+
+            // 第二层插值
+            var p012X = MathUtils.Lerp(p01X, p12X, t);
+            var p012Y = MathUtils.Lerp(p01Y, p12Y, t);
+            
+            var p123X = MathUtils.Lerp(p12X, p23X, t);
+            var p123Y = MathUtils.Lerp(p12Y, p23Y, t);
+
+            // 第三层插值 - 曲线上的点
+            var p0123X = MathUtils.Lerp(p012X, p123X, t);
+            var p0123Y = MathUtils.Lerp(p012Y, p123Y, t);
+
+            // 左侧曲线: P0, P01, P012, P0123
+            leftCurve = new CubicBezierCurve(
+                StartPointX, StartPointY,      // 起点
+                p01X, p01Y,// 控制点1
+                p012X, p012Y,       // 控制点2
+                p0123X, p0123Y);     // 终点
+
+            // 右侧曲线: P0123, P123, P23, P3
+            rightCurve = new CubicBezierCurve(
+                p0123X, p0123Y,        // 起点
+                p123X, p123Y,  // 控制点1
+                p23X, p23Y,            // 控制点2
+                EndPointX, EndPointY);          // 终点
+     }
     }
 
 }

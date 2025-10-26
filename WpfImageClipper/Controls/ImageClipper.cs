@@ -1,4 +1,4 @@
-﻿using LibBezierCurve;
+using LibBezierCurve;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -477,12 +477,113 @@ namespace WpfImageClipper.Controls
 
         private void InsertPoint(int afterIndex, Point position)
         {
-            // TODO: 插入的应该是完整的贝塞尔曲线点, 计算对现有曲线不会造成影响的两个控制点
+            // 在两个点之间插入新点，同时保持曲线形状不变
+            var point1 = AreaPoints[afterIndex];
+            var point2 = AreaPoints[afterIndex + 1];
 
-            AreaPoints.Insert(afterIndex + 1, new ImageClipAreaCommonPoint()
+            // 根据不同的曲线类型进行细分
+            if (point1 is ImageClipAreaBezierPoint1 bezierPoint1 &&
+                point2 is ImageClipAreaBezierPoint2 bezierPoint2)
             {
-                Position = position
-            });
+                // 三次贝塞尔曲线
+                var curve = new CubicBezierCurve(
+                    point1.Position.X, point1.Position.Y,
+                    bezierPoint1.ControlPoint2.X, bezierPoint1.ControlPoint2.Y,
+                    bezierPoint2.ControlPoint1.X, bezierPoint2.ControlPoint1.Y,
+                    point2.Position.X, point2.Position.Y);
+
+                // 计算插入点对应的 t 参数
+                if (!curve.HitTest(position.X, position.Y, double.MaxValue, out var t))
+                {
+                    t = 0.5; // 如果找不到，默认在中点
+                }
+
+                // 细分曲线
+                curve.Subdivide(t, out var leftCurve, out var rightCurve);
+
+                // 更新第一个点的出点控制点
+                bezierPoint1.ControlPoint2 = new Point(leftCurve.ControlPoint1X, leftCurve.ControlPoint1Y);
+
+                // 创建新的中间点（带入点和出点）
+                var newPoint = new ImageClipAreaBezierPoint2
+                {
+                    Position = new Point(leftCurve.EndPointX, leftCurve.EndPointY),
+                    ControlPoint1 = new Point(leftCurve.ControlPoint2X, leftCurve.ControlPoint2Y),
+                    ControlPoint2 = new Point(rightCurve.ControlPoint1X, rightCurve.ControlPoint1Y)
+                };
+
+                // 更新第二个点的入点控制点
+                bezierPoint2.ControlPoint1 = new Point(rightCurve.ControlPoint2X, rightCurve.ControlPoint2Y);
+
+                // 插入新点
+                AreaPoints.Insert(afterIndex + 1, newPoint);
+            }
+            else if (point1 is ImageClipAreaCommonPoint &&
+                     point2 is ImageClipAreaBezierPoint2 bezierPoint2Only)
+            {
+                // 二次贝塞尔曲线（只有入点）
+                var curve = new QuadraticBezierCurve(
+                    point1.Position.X, point1.Position.Y,
+                    bezierPoint2Only.ControlPoint1.X, bezierPoint2Only.ControlPoint1.Y,
+                    point2.Position.X, point2.Position.Y);
+
+                if (!curve.HitTest(position.X, position.Y, double.MaxValue, out var t))
+                {
+                    t = 0.5;
+                }
+
+                curve.Subdivide(t, out var leftCurve, out var rightCurve);
+
+                // 创建新的中间点（带入点和出点）
+                var newPoint = new ImageClipAreaBezierPoint2
+                {
+                    Position = new Point(leftCurve.EndPointX, leftCurve.EndPointY),
+                    ControlPoint1 = new Point(leftCurve.ControlPointX, leftCurve.ControlPointY),
+                    ControlPoint2 = new Point(rightCurve.ControlPointX, rightCurve.ControlPointY)
+                };
+
+                // 更新第二个点的入点控制点
+                bezierPoint2Only.ControlPoint1 = new Point(rightCurve.ControlPointX, rightCurve.ControlPointY);
+
+                AreaPoints.Insert(afterIndex + 1, newPoint);
+            }
+            else if (point1 is ImageClipAreaBezierPoint1 bezierPoint1Only &&
+                     point2 is ImageClipAreaCommonPoint)
+            {
+                // 二次贝塞尔曲线（只有出点）
+                var curve = new QuadraticBezierCurve(
+                    point1.Position.X, point1.Position.Y,
+                    bezierPoint1Only.ControlPoint2.X, bezierPoint1Only.ControlPoint2.Y,
+                    point2.Position.X, point2.Position.Y);
+
+                if (!curve.HitTest(position.X, position.Y, double.MaxValue, out var t))
+                {
+                    t = 0.5;
+                }
+
+                curve.Subdivide(t, out var leftCurve, out var rightCurve);
+
+                // 更新第一个点的出点控制点
+                bezierPoint1Only.ControlPoint2 = new Point(leftCurve.ControlPointX, leftCurve.ControlPointY);
+
+                // 创建新的中间点（带入点和出点）
+                var newPoint = new ImageClipAreaBezierPoint2
+                {
+                    Position = new Point(leftCurve.EndPointX, leftCurve.EndPointY),
+                    ControlPoint1 = new Point(rightCurve.ControlPointX, rightCurve.ControlPointY),
+                    ControlPoint2 = new Point(rightCurve.ControlPointX, rightCurve.ControlPointY)
+                };
+
+                AreaPoints.Insert(afterIndex + 1, newPoint);
+            }
+            else
+            {
+                // 直线段，直接插入普通点
+                AreaPoints.Insert(afterIndex + 1, new ImageClipAreaCommonPoint()
+                {
+                    Position = position
+                });
+            }
         }
 
         protected override void OnRender(DrawingContext drawingContext)
