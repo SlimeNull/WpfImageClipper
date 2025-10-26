@@ -570,7 +570,7 @@ namespace WpfImageClipper.Controls
                 var newPoint = new ImageClipAreaBezierPoint2
                 {
                     Position = new Point(leftCurve.EndPointX, leftCurve.EndPointY),
-                    ControlPoint1 = new Point(rightCurve.ControlPointX, rightCurve.ControlPointY),
+                    ControlPoint1 = new Point(leftCurve.ControlPointX, leftCurve.ControlPointY),
                     ControlPoint2 = new Point(rightCurve.ControlPointX, rightCurve.ControlPointY)
                 };
 
