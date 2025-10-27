@@ -310,7 +310,7 @@ namespace WpfImageClipper.Controls
             }
             else if (
                 point1 is ImageClipAreaBezierPoint1 &&
-                point2 is ImageClipAreaCommonPoint)
+                point2 is ImageClipAreaCommonPoint or ImageClipAreaBezierPoint1)
             {
                 var point1Bezier = (ImageClipAreaBezierPoint1)point1;
                 var bezierGeometry = BuildBezierGeometry(
@@ -441,7 +441,7 @@ namespace WpfImageClipper.Controls
             }
             else if (
                 point1 is ImageClipAreaBezierPoint1 &&
-                point2 is ImageClipAreaCommonPoint)
+                point2 is ImageClipAreaCommonPoint or ImageClipAreaBezierPoint1)
             {
                 var point1Bezier = (ImageClipAreaBezierPoint1)point1;
 
