@@ -466,7 +466,7 @@ namespace WpfImageClipper.Controls
                 StartPoint = AreaPoints[0].Position,
             };
 
-            for (int i = 0; i < AreaPoints.Count - 1; i++)
+            for (int i = 0; i < AreaPoints.Count; i++)
             {
                 BuildClipGeometryFigurePart(pathFigure, AreaPoints[i], AreaPoints[(i + 1) % AreaPoints.Count]);
             }
