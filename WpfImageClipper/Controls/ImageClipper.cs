@@ -678,6 +678,7 @@ namespace WpfImageClipper.Controls
                         {
                             _isMovingPoint = true;
                             _isMovingControlPoint1 = true;
+                            _isMovingControlPoint2 = false;
                             _movingPointIndex = i;
                             _currentPointIndex = i;
                             e.Handled = true;
@@ -688,6 +689,7 @@ namespace WpfImageClipper.Controls
                             (i == _currentPointIndex || i == _currentPointIndex - 1))
                         {
                             _isMovingPoint = true;
+                            _isMovingControlPoint1 = false;
                             _isMovingControlPoint2 = true;
                             _movingPointIndex = i;
                             _currentPointIndex = i;
