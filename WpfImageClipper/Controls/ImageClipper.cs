@@ -666,6 +666,8 @@ namespace WpfImageClipper.Controls
                         if (hitPointSelf)
                         {
                             _isMovingPoint = true;
+                            _isMovingControlPoint1 = false;
+                            _isMovingControlPoint2 = false;
                             _movingPointIndex = i;
                             _currentPointIndex = i;
                             e.Handled = true;
